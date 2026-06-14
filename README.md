@@ -1,7 +1,11 @@
-# Automated JAKA A5 Motion-Planning Pipeline
+# mp_implementation
 
-This is a separate ROS 2 workspace for integrating environment reconstruction,
-decision making, and MoveIt motion planning. It reuses the installed
+Automated JAKA A5 motion-planning implementation for integrating environment
+reconstruction, decision making, and MoveIt motion planning.
+
+Repository: <https://github.com/ScJokre/mp_implementation>
+
+This is a separate ROS 2 workspace. It reuses the installed
 `jaka_a5_moveit_config` package but does not modify `jaka_a5_ros2_ws`.
 
 ## Intended project flow
@@ -57,7 +61,7 @@ source install/setup.bash
 Then build this independent workspace:
 
 ```bash
-cd ~/implementation
+cd ~/mp_implementation
 source /opt/ros/jazzy/setup.bash
 source ~/jaka_a5_ros2_ws/install/setup.bash
 rosdep install --from-paths src --ignore-src -r -y
