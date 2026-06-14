@@ -50,11 +50,14 @@ class ExampleTaskClient(Node):
         result_future = goal_handle.get_result_async()
         rclpy.spin_until_future_complete(self, result_future)
         result = result_future.result().result
-        log = self.get_logger().info if result.success else self.get_logger().error
-        log(
+        message = (
             f"{result.message} error_code={result.moveit_error_code}, "
             f"planning_time={result.planning_time:.3f}s"
         )
+        if result.success:
+            self.get_logger().info(message)
+        else:
+            self.get_logger().error(message)
         return result.success
 
 

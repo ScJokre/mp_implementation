@@ -11,8 +11,9 @@ from rclpy.node import Node
 
 BOARD_CENTER = [0.48, 0.0, 0.30]
 VIEWPOINTS = [
-    ("above_board", [0.48, 0.0, 0.55]),
-    ("below_board", [0.48, 0.0, 0.12]),
+    ("above_board", [0.48, 0.0, 0.55], BOARD_CENTER),
+    # Keep the same downward-facing orientation to make the lower IK goal easier.
+    ("below_board", [0.48, 0.0, 0.20], [0.48, 0.0, 0.0]),
 ]
 
 
@@ -24,8 +25,8 @@ class ExampleBoardSequenceClient(Node):
         self.declare_parameter("end_effector_link", "tool0")
         self.client = ActionClient(self, PlanMotion, "/plan_motion")
 
-    def make_goal(self, task_id, position):
-        quaternion = view_quaternion(position, BOARD_CENTER)
+    def make_goal(self, task_id, position, look_at):
+        quaternion = view_quaternion(position, look_at)
 
         goal = PlanMotion.Goal()
         goal.task_id = task_id
@@ -56,13 +57,13 @@ class ExampleBoardSequenceClient(Node):
         goal.acceleration_scaling = 0.15
         return goal
 
-    def execute_goal(self, task_id, position):
+    def execute_goal(self, task_id, position, look_at):
         self.get_logger().info(
             f"Sending '{task_id}' target at "
             f"x={position[0]:.2f}, y={position[1]:.2f}, z={position[2]:.2f}."
         )
         send_future = self.client.send_goal_async(
-            self.make_goal(task_id, position),
+            self.make_goal(task_id, position, look_at),
             feedback_callback=lambda feedback: self.get_logger().info(
                 f"{task_id}: {feedback.feedback.state}"
             ),
@@ -76,11 +77,14 @@ class ExampleBoardSequenceClient(Node):
         result_future = goal_handle.get_result_async()
         rclpy.spin_until_future_complete(self, result_future)
         result = result_future.result().result
-        log = self.get_logger().info if result.success else self.get_logger().error
-        log(
+        message = (
             f"{result.message} error_code={result.moveit_error_code}, "
             f"planning_time={result.planning_time:.3f}s"
         )
+        if result.success:
+            self.get_logger().info(message)
+        else:
+            self.get_logger().error(message)
         return result.success
 
     def run_sequence(self):
@@ -89,8 +93,8 @@ class ExampleBoardSequenceClient(Node):
             return False
 
         pause_seconds = self.get_parameter("pause_seconds").value
-        for index, (task_id, position) in enumerate(VIEWPOINTS):
-            if not self.execute_goal(task_id, position):
+        for index, (task_id, position, look_at) in enumerate(VIEWPOINTS):
+            if not self.execute_goal(task_id, position, look_at):
                 self.get_logger().error("Stopping sequence after failed task.")
                 return False
             if index < len(VIEWPOINTS) - 1:

@@ -124,7 +124,8 @@ The sequence automatically executes:
 
 1. Move `tool0` to `[0.48, 0.0, 0.55]`, above the board, looking at its center.
 2. Pause for two seconds.
-3. Move `tool0` to `[0.48, 0.0, 0.12]`, below the board, looking at its center.
+3. Move `tool0` to `[0.48, 0.0, 0.20]`, below the board, while keeping a
+   downward-facing orientation for a more reliable IK solution.
 
 MoveIt must plan around the board rather than passing through it. The sequence
 uses a low velocity scaling of `0.15` so the movement is easy to observe.
