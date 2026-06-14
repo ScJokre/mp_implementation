@@ -9,11 +9,16 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 
 
-BOARD_CENTER = [0.48, 0.0, 0.30]
-VIEWPOINTS = [
-    ("above_board", [0.48, 0.0, 0.55], BOARD_CENTER),
-    # Keep the same downward-facing orientation to make the lower IK goal easier.
-    ("below_board", [0.48, 0.0, 0.20], [0.48, 0.0, 0.0]),
+BOARD_CENTER = [0.52, 0.0, 0.48]
+ABOVE_BOARD = ("above_board", [0.52, 0.0, 0.74], BOARD_CENTER)
+
+# Directly reaching the center under a horizontal board can be impossible
+# because the arm links also need to fit below it. Try lower positions near
+# different board edges and execute the first reachable candidate.
+BELOW_BOARD_CANDIDATES = [
+    ("below_board", [0.52, -0.38, 0.32], [0.52, -0.38, 0.0]),
+    ("below_board", [0.52, 0.38, 0.32], [0.52, 0.38, 0.0]),
+    ("below_board", [0.76, 0.0, 0.32], [0.76, 0.0, 0.0]),
 ]
 
 
@@ -25,12 +30,12 @@ class ExampleBoardSequenceClient(Node):
         self.declare_parameter("end_effector_link", "tool0")
         self.client = ActionClient(self, PlanMotion, "/plan_motion")
 
-    def make_goal(self, task_id, position, look_at):
+    def make_goal(self, task_id, position, look_at, plan_only=False):
         quaternion = view_quaternion(position, look_at)
 
         goal = PlanMotion.Goal()
         goal.task_id = task_id
-        goal.minimum_environment_version = 2
+        goal.minimum_environment_version = 3
         goal.planning_group = "jaka_a5"
         goal.end_effector_link = self.get_parameter("end_effector_link").value
         goal.use_current_start_state = True
@@ -50,20 +55,21 @@ class ExampleBoardSequenceClient(Node):
         ) = quaternion
         goal.position_tolerance = 0.02
         goal.orientation_tolerance = 0.15
-        goal.plan_only = False
-        goal.allowed_planning_time = 15.0
+        goal.plan_only = plan_only
+        goal.allowed_planning_time = 5.0 if plan_only else 15.0
         goal.num_planning_attempts = 30
         goal.velocity_scaling = self.get_parameter("velocity_scaling").value
         goal.acceleration_scaling = 0.15
         return goal
 
-    def execute_goal(self, task_id, position, look_at):
+    def send_goal(self, task_id, position, look_at, plan_only=False):
+        mode = "Checking" if plan_only else "Sending"
         self.get_logger().info(
-            f"Sending '{task_id}' target at "
+            f"{mode} '{task_id}' target at "
             f"x={position[0]:.2f}, y={position[1]:.2f}, z={position[2]:.2f}."
         )
         send_future = self.client.send_goal_async(
-            self.make_goal(task_id, position, look_at),
+            self.make_goal(task_id, position, look_at, plan_only),
             feedback_callback=lambda feedback: self.get_logger().info(
                 f"{task_id}: {feedback.feedback.state}"
             ),
@@ -87,21 +93,43 @@ class ExampleBoardSequenceClient(Node):
             self.get_logger().error(message)
         return result.success
 
+    def find_reachable_below_state(self):
+        self.get_logger().info("Searching for a reachable state below the board.")
+        for index, (_, position, look_at) in enumerate(BELOW_BOARD_CANDIDATES, 1):
+            probe_id = f"below_board_probe_{index}"
+            if self.send_goal(probe_id, position, look_at, plan_only=True):
+                self.get_logger().info(
+                    f"Selected reachable below-board candidate {index}."
+                )
+                return "below_board", position, look_at
+
+        self.get_logger().error("No below-board candidate produced a valid plan.")
+        return None
+
     def run_sequence(self):
         if not self.client.wait_for_server(timeout_sec=15.0):
             self.get_logger().error("/plan_motion is unavailable.")
             return False
 
         pause_seconds = self.get_parameter("pause_seconds").value
-        for index, (task_id, position, look_at) in enumerate(VIEWPOINTS):
-            if not self.execute_goal(task_id, position, look_at):
-                self.get_logger().error("Stopping sequence after failed task.")
-                return False
-            if index < len(VIEWPOINTS) - 1:
-                self.get_logger().info(
-                    f"Reached board upper state; waiting {pause_seconds:.1f}s."
-                )
-                sleep(pause_seconds)
+        task_id, position, look_at = ABOVE_BOARD
+        if not self.send_goal(task_id, position, look_at):
+            self.get_logger().error("Failed to reach the above-board state.")
+            return False
+
+        self.get_logger().info(
+            f"Reached board upper state; waiting {pause_seconds:.1f}s."
+        )
+        sleep(pause_seconds)
+
+        below_state = self.find_reachable_below_state()
+        if below_state is None:
+            return False
+
+        task_id, position, look_at = below_state
+        if not self.send_goal(task_id, position, look_at):
+            self.get_logger().error("Failed to execute the selected below-board state.")
+            return False
 
         self.get_logger().info("Completed above-board to below-board sequence.")
         return True

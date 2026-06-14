@@ -108,7 +108,9 @@ axis convention.
 ## Test movement above and below the board
 
 The sample environment contains a horizontal inspection board centered at
-`[0.48, 0.0, 0.30]`. Start the system without the automatic joint task:
+`[0.52, 0.0, 0.48]`. The board is raised and placed farther from the robot
+base so that both the obstacle and the motion are easy to observe. Start the
+system without the automatic joint task:
 
 ```bash
 ros2 launch jaka_motion_pipeline automatic_demo.launch.py
@@ -122,13 +124,16 @@ ros2 run jaka_motion_pipeline example_board_sequence
 
 The sequence automatically executes:
 
-1. Move `tool0` to `[0.48, 0.0, 0.55]`, above the board, looking at its center.
+1. Move `tool0` to `[0.52, 0.0, 0.74]`, clearly above the board, looking at its
+   center.
 2. Pause for two seconds.
-3. Move `tool0` to `[0.48, 0.0, 0.20]`, below the board, while keeping a
-   downward-facing orientation for a more reliable IK solution.
+3. Test several positions below the board edges using plan-only requests.
+4. Execute the first reachable below-board position.
 
 MoveIt must plan around the board rather than passing through it. The sequence
 uses a low velocity scaling of `0.15` so the movement is easy to observe.
+Candidate probing is necessary because placing the complete arm directly under
+the center of a horizontal board may not have a collision-free IK solution.
 
 ## Integration contracts
 
