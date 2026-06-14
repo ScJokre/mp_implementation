@@ -25,6 +25,7 @@ setup(
             "motion_planner = jaka_motion_pipeline.motion_planner_node:main",
             "example_environment = jaka_motion_pipeline.example_environment:main",
             "example_task = jaka_motion_pipeline.example_task:main",
+            "example_board_sequence = jaka_motion_pipeline.example_board_sequence:main",
             "example_viewpoint_task = jaka_motion_pipeline.example_viewpoint_task:main",
         ],
     },

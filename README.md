@@ -105,6 +105,30 @@ This is only an integration placeholder. After adding the simulated camera,
 set `end_effector_link` to the camera's controlled frame and verify its optical
 axis convention.
 
+## Test movement above and below the board
+
+The sample environment contains a horizontal inspection board centered at
+`[0.48, 0.0, 0.30]`. Start the system without the automatic joint task:
+
+```bash
+ros2 launch jaka_motion_pipeline automatic_demo.launch.py
+```
+
+In another sourced terminal, run the two-state sequence:
+
+```bash
+ros2 run jaka_motion_pipeline example_board_sequence
+```
+
+The sequence automatically executes:
+
+1. Move `tool0` to `[0.48, 0.0, 0.55]`, above the board, looking at its center.
+2. Pause for two seconds.
+3. Move `tool0` to `[0.48, 0.0, 0.12]`, below the board, looking at its center.
+
+MoveIt must plan around the board rather than passing through it. The sequence
+uses a low velocity scaling of `0.15` so the movement is easy to observe.
+
 ## Integration contracts
 
 ### Environment reconstruction output
