@@ -1,0 +1,151 @@
+# Automated JAKA A5 Motion-Planning Pipeline
+
+This is a separate ROS 2 workspace for integrating environment reconstruction,
+decision making, and MoveIt motion planning. It reuses the installed
+`jaka_a5_moveit_config` package but does not modify `jaka_a5_ros2_ws`.
+
+## Intended project flow
+
+```text
+Gazebo RGB-D camera
+  -> PointCloud2
+  -> environment reconstruction / optimization
+  -> /known_environment (versioned collision model)
+  -> decision module (TSP + probability model)
+  -> /plan_motion action (start state + target viewpoint)
+  -> jaka_motion_pipeline
+  -> MoveIt Planning Scene + MoveGroup
+  -> planned trajectory / simulated execution
+```
+
+The motion-planning package intentionally does not consume raw point clouds.
+The reconstruction module owns point-cloud processing and publishes a compact,
+stable collision model. This keeps motion planning independent from the
+specific RGB-D camera and reconstruction algorithm.
+
+## Packages
+
+### `jaka_planning_interfaces`
+
+- `EnvironmentModel`: versioned known environment.
+- `EnvironmentObject`: box, sphere, or cylinder collision primitive.
+- `PlanMotion`: action used by the decision module to request planning or
+  planning plus execution.
+
+### `jaka_motion_pipeline`
+
+- Caches the newest `/known_environment`.
+- Rejects requests that require a newer environment version.
+- Applies the environment through MoveIt's `/apply_planning_scene` service.
+- Converts joint or pose goals into a MoveIt `/move_action` request.
+- Returns the MoveIt error code, planning time, and planned trajectory.
+
+Only one motion task is accepted at a time. This matches the sequential
+viewpoint tasks produced by the decision module.
+
+## Build in WSL
+
+Build and source the existing JAKA workspace first:
+
+```bash
+cd ~/jaka_a5_ros2_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+```
+
+Then build this independent workspace:
+
+```bash
+cd ~/implementation
+source /opt/ros/jazzy/setup.bash
+source ~/jaka_a5_ros2_ws/install/setup.bash
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --symlink-install
+source install/setup.bash
+```
+
+## Automated smoke test
+
+This starts the existing JAKA demo, publishes a sample known environment, and
+automatically plans and executes a joint-space task:
+
+```bash
+ros2 launch jaka_motion_pipeline automatic_demo.launch.py send_sample_task:=true
+```
+
+Use planning without execution:
+
+```bash
+ros2 launch jaka_motion_pipeline automatic_demo.launch.py \
+  send_sample_task:=true plan_only:=true
+```
+
+No RViz interaction is required. RViz remains open only for visualization.
+
+## Test the viewpoint interface
+
+The decision module's target should ultimately be a camera pose. The included
+viewpoint example accepts a camera/tool position and a point to look at, then
+converts the viewing direction into an orientation quaternion:
+
+```bash
+ros2 run jaka_motion_pipeline example_viewpoint_task --ros-args \
+  -p position:="[0.45, 0.0, 0.45]" \
+  -p look_at:="[0.45, 0.0, 0.0]" \
+  -p plan_only:=true
+```
+
+The current example assumes `tool0` looks forward along its local `+Z` axis.
+This is only an integration placeholder. After adding the simulated camera,
+set `end_effector_link` to the camera's controlled frame and verify its optical
+axis convention.
+
+## Integration contracts
+
+### Environment reconstruction output
+
+Publish `jaka_planning_interfaces/msg/EnvironmentModel` on
+`/known_environment` with reliable, transient-local QoS:
+
+- `header.frame_id`: normally `world`.
+- `version`: increment whenever the optimized environment changes.
+- `replace`: set true for a complete environment snapshot.
+- `objects`: collision primitives with stable, unique IDs.
+
+The current interface supports primitives because they are simple and reliable
+for the first integrated simulation. If the optimizer produces a triangle
+mesh, extend `EnvironmentObject` and the collision-object conversion. If it
+produces dense occupancy data, use MoveIt's occupancy-map/OctoMap path instead
+of generating thousands of primitive objects.
+
+### Decision module output
+
+Send `jaka_planning_interfaces/action/PlanMotion` goals to `/plan_motion`:
+
+- `minimum_environment_version`: environment version used by the decision.
+- `use_current_start_state`: normally true during execution.
+- `goal_type`: `JOINT_GOAL` for testing or `POSE_GOAL` for viewpoints.
+- `pose_goal`: target position and orientation of the camera/tool frame.
+- `plan_only`: false to plan and execute in simulation.
+
+The action result reports whether MoveIt succeeded and includes the planned
+trajectory. A TSP-style decision module should wait for each result before
+sending the next viewpoint.
+
+## Gazebo connection work
+
+The next integration stage is separate from this motion-planning node:
+
+1. Create a simulation description package in this workspace that adds a
+   fixed RGB-D camera link and Gazebo sensor to the JAKA model.
+2. Bridge or publish the simulated depth point cloud as
+   `sensor_msgs/msg/PointCloud2`.
+3. Connect the reconstruction/optimization module to that point cloud.
+4. Publish the optimized result as `/known_environment`.
+5. Configure the decision module to send `/plan_motion` pose goals for the
+   camera frame.
+
+For real hardware, the mock `ros2_control` controller must later be replaced
+with a verified JAKA ROS 2 hardware interface. The planning API can remain the
+same.

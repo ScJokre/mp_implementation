@@ -1,0 +1,12 @@
+motion_planner:
+  ros__parameters:
+    environment_topic: /known_environment
+    planning_action: /plan_motion
+    move_group_action: /move_action
+    apply_scene_service: /apply_planning_scene
+    default_planning_group: jaka_a5
+    default_end_effector_link: tool0
+    default_planning_time: 5.0
+    default_planning_attempts: 10
+    default_velocity_scaling: 0.2
+    default_acceleration_scaling: 0.2
