@@ -9,19 +9,20 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 
 
-BOARD_CENTER = [0.35, 0.0, 0.82]
+BOARD_CENTER = [0.35, 0.0, 0.72]
 ABOVE_BOARD_CANDIDATES = [
-    ("above_board", [0.35, 0.0, 1.04], BOARD_CENTER),
-    ("above_board", [0.25, 0.0, 1.00], BOARD_CENTER),
+    ("above_board", [0.35, 0.0, 0.86], BOARD_CENTER),
+    ("above_board", [0.25, 0.0, 0.84], BOARD_CENTER),
+    ("above_board", [0.45, 0.0, 0.84], BOARD_CENTER),
 ]
 
 # Directly reaching the center under a horizontal board can be impossible
 # because the arm links also need to fit below it. Try lower positions near
 # different board edges and execute the first reachable candidate.
 BELOW_BOARD_CANDIDATES = [
-    ("below_board", [0.35, -0.38, 0.62], [0.35, -0.38, 0.30]),
-    ("below_board", [0.35, 0.38, 0.62], [0.35, 0.38, 0.30]),
-    ("below_board", [0.60, 0.0, 0.62], [0.60, 0.0, 0.30]),
+    ("below_board", [0.35, -0.32, 0.57], [0.35, -0.32, 0.30]),
+    ("below_board", [0.35, 0.32, 0.57], [0.35, 0.32, 0.30]),
+    ("below_board", [0.58, 0.0, 0.57], [0.58, 0.0, 0.30]),
 ]
 
 
@@ -38,7 +39,7 @@ class ExampleBoardSequenceClient(Node):
 
         goal = PlanMotion.Goal()
         goal.task_id = task_id
-        goal.minimum_environment_version = 4
+        goal.minimum_environment_version = 5
         goal.planning_group = "jaka_a5"
         goal.end_effector_link = self.get_parameter("end_effector_link").value
         goal.use_current_start_state = True
@@ -57,7 +58,9 @@ class ExampleBoardSequenceClient(Node):
             goal.pose_goal.pose.orientation.w,
         ) = quaternion
         goal.position_tolerance = 0.02
-        goal.orientation_tolerance = 0.15
+        # This test focuses on position planning around the board. Camera-facing
+        # constraints will be tightened after the simulated camera frame exists.
+        goal.orientation_tolerance = 3.14
         goal.plan_only = plan_only
         goal.allowed_planning_time = 5.0 if plan_only else 15.0
         goal.num_planning_attempts = 30

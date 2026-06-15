@@ -27,6 +27,7 @@ setup(
             "example_task = jaka_motion_pipeline.example_task:main",
             "example_board_sequence = jaka_motion_pipeline.example_board_sequence:main",
             "example_viewpoint_task = jaka_motion_pipeline.example_viewpoint_task:main",
+            "export_board_states = jaka_motion_pipeline.export_board_states:main",
         ],
     },
 )

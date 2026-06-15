@@ -108,8 +108,8 @@ axis convention.
 ## Test movement above and below the board
 
 The sample environment contains a horizontal inspection board centered at
-`[0.35, 0.0, 0.82]`. The board is placed well above the initial robot state;
-its bottom surface is approximately `z=0.805`. Start the system without the
+`[0.35, 0.0, 0.72]`. The board is placed above the initial robot state; its
+bottom surface is approximately `z=0.705`. Start the system without the
 automatic joint task:
 
 ```bash
@@ -124,17 +124,58 @@ ros2 run jaka_motion_pipeline example_board_sequence
 
 The sequence automatically executes:
 
-1. Test above-board targets around `[0.35, 0.0, 1.04]`, approximately `0.22 m`
+1. Test above-board targets around `[0.35, 0.0, 0.86]`, approximately `0.14 m`
    above the board.
 2. Execute the first reachable above-board target.
 3. Pause for two seconds.
-4. Test below-board targets around `z=0.62` using plan-only requests.
+4. Test below-board targets around `z=0.57` using plan-only requests.
 5. Execute the first reachable below-board position.
 
 MoveIt must plan around the board rather than passing through it. The sequence
 uses a low velocity scaling of `0.15` so the movement is easy to observe.
 Candidate probing is necessary because placing the complete arm directly under
 the center of a horizontal board may not have a collision-free IK solution.
+This demonstration uses a relaxed orientation tolerance so it primarily tests
+position planning and collision avoidance. Camera-facing constraints will be
+tightened after the simulated camera link is added.
+
+## Export board poses as RViz named states
+
+RViz named states contain joint angles, not Cartesian target positions. Start
+the normal automatic demo, then calculate collision-free joint states for all
+board candidates:
+
+```bash
+ros2 run jaka_motion_pipeline export_board_states
+```
+
+Successful candidates are written to:
+
+```text
+~/.ros/jaka_a5_board_states.srdf
+```
+
+Candidates that fail planning cannot become named states because MoveIt did
+not find a valid joint configuration for them. The exporter also publishes
+colored target-position markers on `/board_state_targets`. To inspect all
+candidate positions while the normal demo is running:
+
+1. In RViz, select `Add`.
+2. Add a `MarkerArray` display.
+3. Set its topic to `/board_state_targets`.
+4. Run `export_board_states` again.
+
+After exporting, stop the normal demo and launch MoveIt with the generated
+states:
+
+```bash
+ros2 launch jaka_motion_pipeline board_states_demo.launch.py
+```
+
+In RViz, open `MotionPlanning -> Planning Request` and select generated states
+such as `board_above_1` or `board_below_1` from the Goal State selector. This
+launch uses the generated SRDF from `~/.ros` and does not modify
+`jaka_a5_ros2_ws`.
 
 ## Integration contracts
 

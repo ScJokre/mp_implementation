@@ -33,7 +33,7 @@ class ExampleEnvironmentPublisher(Node):
         message = EnvironmentModel()
         message.header.stamp = self.get_clock().now().to_msg()
         message.header.frame_id = "world"
-        message.version = 4
+        message.version = 5
         message.replace = True
         message.objects = [
             self.make_box("table", [1.4, 1.4, 0.10], [0.35, 0.0, -0.08]),
@@ -41,11 +41,11 @@ class ExampleEnvironmentPublisher(Node):
             self.make_box(
                 "inspection_board",
                 [0.30, 0.40, 0.03],
-                [0.35, 0.0, 0.82],
+                [0.35, 0.0, 0.72],
             ),
         ]
         self.publisher.publish(message)
-        self.get_logger().info("Published example environment version 4.")
+        self.get_logger().info("Published example environment version 5.")
 
 
 def main(args=None):
