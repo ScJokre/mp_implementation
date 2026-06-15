@@ -108,9 +108,9 @@ axis convention.
 ## Test movement above and below the board
 
 The sample environment contains a horizontal inspection board centered at
-`[0.52, 0.0, 0.48]`. The board is raised and placed farther from the robot
-base so that both the obstacle and the motion are easy to observe. Start the
-system without the automatic joint task:
+`[0.35, 0.0, 0.82]`. The board is placed well above the initial robot state;
+its bottom surface is approximately `z=0.805`. Start the system without the
+automatic joint task:
 
 ```bash
 ros2 launch jaka_motion_pipeline automatic_demo.launch.py
@@ -124,11 +124,12 @@ ros2 run jaka_motion_pipeline example_board_sequence
 
 The sequence automatically executes:
 
-1. Move `tool0` to `[0.52, 0.0, 0.74]`, clearly above the board, looking at its
-   center.
-2. Pause for two seconds.
-3. Test several positions below the board edges using plan-only requests.
-4. Execute the first reachable below-board position.
+1. Test above-board targets around `[0.35, 0.0, 1.04]`, approximately `0.22 m`
+   above the board.
+2. Execute the first reachable above-board target.
+3. Pause for two seconds.
+4. Test below-board targets around `z=0.62` using plan-only requests.
+5. Execute the first reachable below-board position.
 
 MoveIt must plan around the board rather than passing through it. The sequence
 uses a low velocity scaling of `0.15` so the movement is easy to observe.

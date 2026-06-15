@@ -9,16 +9,19 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 
 
-BOARD_CENTER = [0.52, 0.0, 0.48]
-ABOVE_BOARD = ("above_board", [0.52, 0.0, 0.74], BOARD_CENTER)
+BOARD_CENTER = [0.35, 0.0, 0.82]
+ABOVE_BOARD_CANDIDATES = [
+    ("above_board", [0.35, 0.0, 1.04], BOARD_CENTER),
+    ("above_board", [0.25, 0.0, 1.00], BOARD_CENTER),
+]
 
 # Directly reaching the center under a horizontal board can be impossible
 # because the arm links also need to fit below it. Try lower positions near
 # different board edges and execute the first reachable candidate.
 BELOW_BOARD_CANDIDATES = [
-    ("below_board", [0.52, -0.38, 0.32], [0.52, -0.38, 0.0]),
-    ("below_board", [0.52, 0.38, 0.32], [0.52, 0.38, 0.0]),
-    ("below_board", [0.76, 0.0, 0.32], [0.76, 0.0, 0.0]),
+    ("below_board", [0.35, -0.38, 0.62], [0.35, -0.38, 0.30]),
+    ("below_board", [0.35, 0.38, 0.62], [0.35, 0.38, 0.30]),
+    ("below_board", [0.60, 0.0, 0.62], [0.60, 0.0, 0.30]),
 ]
 
 
@@ -35,7 +38,7 @@ class ExampleBoardSequenceClient(Node):
 
         goal = PlanMotion.Goal()
         goal.task_id = task_id
-        goal.minimum_environment_version = 3
+        goal.minimum_environment_version = 4
         goal.planning_group = "jaka_a5"
         goal.end_effector_link = self.get_parameter("end_effector_link").value
         goal.use_current_start_state = True
@@ -93,17 +96,19 @@ class ExampleBoardSequenceClient(Node):
             self.get_logger().error(message)
         return result.success
 
-    def find_reachable_below_state(self):
-        self.get_logger().info("Searching for a reachable state below the board.")
-        for index, (_, position, look_at) in enumerate(BELOW_BOARD_CANDIDATES, 1):
-            probe_id = f"below_board_probe_{index}"
+    def find_reachable_state(self, state_name, candidates):
+        self.get_logger().info(f"Searching for a reachable {state_name} state.")
+        for index, (_, position, look_at) in enumerate(candidates, 1):
+            probe_id = f"{state_name}_probe_{index}"
             if self.send_goal(probe_id, position, look_at, plan_only=True):
                 self.get_logger().info(
-                    f"Selected reachable below-board candidate {index}."
+                    f"Selected reachable {state_name} candidate {index}."
                 )
-                return "below_board", position, look_at
+                return state_name, position, look_at
 
-        self.get_logger().error("No below-board candidate produced a valid plan.")
+        self.get_logger().error(
+            f"No {state_name} candidate produced a valid plan."
+        )
         return None
 
     def run_sequence(self):
@@ -112,7 +117,13 @@ class ExampleBoardSequenceClient(Node):
             return False
 
         pause_seconds = self.get_parameter("pause_seconds").value
-        task_id, position, look_at = ABOVE_BOARD
+        above_state = self.find_reachable_state(
+            "above_board", ABOVE_BOARD_CANDIDATES
+        )
+        if above_state is None:
+            return False
+
+        task_id, position, look_at = above_state
         if not self.send_goal(task_id, position, look_at):
             self.get_logger().error("Failed to reach the above-board state.")
             return False
@@ -122,7 +133,9 @@ class ExampleBoardSequenceClient(Node):
         )
         sleep(pause_seconds)
 
-        below_state = self.find_reachable_below_state()
+        below_state = self.find_reachable_state(
+            "below_board", BELOW_BOARD_CANDIDATES
+        )
         if below_state is None:
             return False
 
